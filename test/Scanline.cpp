@@ -97,7 +97,7 @@ void Scanline::UpdateActivePoly()
 {
 	//判断活化多边形表，已扫描完的多边形删去
 	int n2 = 0;
-	for (vector<ActivePoly>::iterator it = APT.begin(); it != APT.end(); it++)
+	for (vector<Poly>::iterator it = APT.begin(); it != APT.end(); it++)
 	{
 		(*it).dy--;
 		if ((*it).dy == 0) continue;
@@ -215,15 +215,15 @@ void Scanline::ComputeBuffer(int y, vector<Color> &buffer, Mat &image)
 					zr.push_back(-((*it).a*right + (*it).b*(y+0.5) + (*it).d) / (*it).c);
 				}
 			}
-			for (int i = 0; i < count; i++)
-			{
-				//左右端点的差值符号相反,代表出现贯穿
-				if ((zl[i] - zl[(i + 1) % count])*(zr[i] - zr[(i + 1) % count]) < 0)
-				{
-					//计算交点
-					float cross = 
-				}
-			}
+			//for (int i = 0; i < count; i++)
+			//{
+			//	//左右端点的差值符号相反,代表出现贯穿
+			//	if ((zl[i] - zl[(i + 1) % count])*(zr[i] - zr[(i + 1) % count]) < 0)
+			//	{
+			//		//计算交点
+			//		float cross = 
+			//	}
+			//}
 			
 			col = pixelByID(count,left,y);
 			while (left < right)
