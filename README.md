@@ -1,0 +1,2 @@
+# CG_SpanScaline_Elimination
+计算机图形学作业一，区间扫描线算法实现消隐
