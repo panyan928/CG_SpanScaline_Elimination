@@ -155,13 +155,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="DisplayBuffer.cpp" />
     <ClCompile Include="Obj.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Scanline.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DisplayBuffer.h" />
     <ClInclude Include="Obj.h" />
     <ClInclude Include="Coord.h" />
     <ClInclude Include="Scanline.h" />

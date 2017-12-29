@@ -56,7 +56,7 @@ void reshape(int w,int h)
 	//display();
 }
 
-int getModels()
+void getModels()
 {
 	WIN32_FIND_DATA ffd;
 	LARGE_INTEGER filesize;
@@ -84,57 +84,43 @@ int getModels()
 		} while (_findnext(hFile, &fileinfo) == 0);
 		_findclose(hFile);
 	}
+	cout << "0: Exit" << endl;
 	for (int i = 0; i < files.size(); i++)
 	{
-		cout << i << " " << files[i].substr(files[i].find_last_of('\\')+1) << endl;
+		cout << i+1 << ": " << files[i].substr(files[i].find_last_of('\\')+1) << endl;
 	}
-	cout << "Please choose one model's number:";
-	int number;
-	cin >> number;
-	while (number < 0 || number >= files.size())
-	{
-		cout << "Input Error\nPlease choose again:";
-		cin >> number;
-	}
-	return number;
+
 }
 
 int main(int argc,char** argv)
 {
+	getModels();
 	buffer.clear();
-	//getModels();
-
-	if(obj.load(files[getModels()])==0) return 0;
+	cout << "Please choose one model's number:";
+	int number;
+	cin >> number;
+	if (number == 0) return 1;
+	while (number < 0 || number > files.size())
+	{
+		cout << "Input Error\nPlease choose again:";
+		cin >> number;
+	}
+	if (obj.load(files[number-1]) == 0) return 0;
 	//显示模型信息
 	obj.info();
 	width = 1000;
-	height = 800;
-	
-	//cv::Mat image = cv::Mat::zeros(height, width, CV_8UC1);
+	height = 850;
+
 	//gl初始化
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_RGB | GLUT_SINGLE);
 	glutInitWindowPosition(0, 0);
 	glutInitWindowSize(width, height);
 	glutCreateWindow("CGHW1");
-	/*clock_t start = clock();
-	eliminate.setSize(width, height);
-	obj.scale(width, height);
-	eliminate.BuildTable(obj);
-	eliminate.scan(obj, buffer);
-	clock_t stop = clock();
-	cout << "The time is " << float(stop - start) << "ms" << endl;*/
+
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
 	glutMainLoop();
-	
-	/*for (int j = 0; j < height; j++)
-	for (int i = 0; i < width; i++)
-	{
-		image.at<uchar>(j, i) = buffer[height-j-1][i];
-	}
-	cv::imshow("result", image);
-	cv::waitKey();*/
 	return 1;
 }
 

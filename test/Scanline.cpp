@@ -1,6 +1,13 @@
 #include"Scanline.h"
 #include<algorithm>
 
+struct endpoint
+{
+	float zl;
+	float zr;
+	int order;
+};
+
 Color getColor(Coord<float> &normal)
 {
 	//三维空间坐标下计算z方向的夹角
@@ -17,18 +24,21 @@ void Scanline::BuildTable(Obj &obj)
 	PTable.clear();
 	ETable.resize(height);
 	PTable.resize(height);
+ 
 	for (int i = 1; i <= obj.n_face; i++)
 	{
 		//创建边表
 		Edge edge;
 		float miny = 999999;
 		float maxy = 0;
-		for (int j = 0; j < 3; j++)
+		//这里不只是3啊！！考虑问题全面一点啊！！想想你为这个问题纠结了多久！！
+		//for (int j = 0; j < 3; j++)
+		for (int j = 0; j < obj.face[i].size();j++)
 		{
 			edge.polyID = i;
 			//edge.flag = 0;
 			Coord<float> c1 = obj.vertex[obj.face[i][j]];
-			Coord<float> c2 = obj.vertex[obj.face[i][(j + 1) % 3]];
+			Coord<float> c2 = obj.vertex[obj.face[i][(j + 1) % obj.face[i].size()]];
 			//根据边的上端点坐标，ymax将边放入相应的位置
 			//找y值大，在上面的点作为边的起点，点c1在点c2的上面，y值小
 			if (c1.y<c2.y)
@@ -138,6 +148,7 @@ Color  Scanline::pixelByID(int count, float x, float y)
 	Color col = 0;
 	y = y - 0.5;//扫描线y的中心线为y+0.5
 	float maxz = -999, z;
+ 
 	for (vector<Poly>::iterator it = APT.begin(); count > 0 && it != APT.end(); it++)
 	{
 		//先判断是进入区间的多边形
@@ -156,13 +167,6 @@ Color  Scanline::pixelByID(int count, float x, float y)
 	}
 	return col;
 }
-
-struct endpoint
-{
-	float zl;
-	float zr;
-	int order;
-};
 
 void Scanline::ComputeBuffer(int y, vector<Color> &buffer)
 {
@@ -183,11 +187,11 @@ void Scanline::ComputeBuffer(int y, vector<Color> &buffer)
 		if (count == 0)
 		{
 			//区间内像素值都设为背景值
-			while (left < right)
+ 
+			for(float pixel=left;left<right;left++)
 			{
 				//image.at<uchar>(height - y - 1, left) = col;
 				buffer[left]=0;
-				left++;
 			}
 		}
 		//该区间内只有一个多边形
@@ -195,11 +199,11 @@ void Scanline::ComputeBuffer(int y, vector<Color> &buffer)
 		{
 			col = pixelByID(count, left, y);
 			//区间内像素值都设为当前多边形的color
-			while (left < right)
+ 
+			for(float pixel=left;left<right;left++)
 			{
 				//image.at<uchar>(height - y - 1, floor(left)) = col;
 				buffer[left] = col;
-				left++;
 			}
 		}
 		else//区间内有多个多边形时，计算交点
@@ -211,21 +215,19 @@ void Scanline::ComputeBuffer(int y, vector<Color> &buffer)
 			Poly p1, p2;//代表贯穿的两个多边形
 			vector<float> cross;//交点的x值
 			//计算区间左右的深度值，把他们所属的多边形在APT表中的位置存下来
+ 
 			for (int i = 0; i < APT.size();i++)
 			{
 				if (points.size() == count) break;
 				if (APT[i].flag)
 				{
-					//这里不能拿left去算，left永远只是整数，不是真正的扫描线与边的交点，会有偏差
-					/*points.push_back(  { float(-(APT[i].a*left + APT[i].b*(y + 0.5) + APT[i].d) / APT[i].c), 
-									   float( -(APT[i].a*right + APT[i].b*(y + 0.5) + APT[i].d) / APT[i].c),
-									    i}  );*/
 					points.push_back( { float(-(APT[i].a*left + APT[i].b*(y + 0.5) + APT[i].d) / APT[i].c),
 									    float(-(APT[i].a*right + APT[i].b*(y + 0.5) + APT[i].d) / APT[i].c),
 									    i });
 				}
 			}
 			//两两计算是否交叉，交叉的话则计算出他们的交点，并把交点入交点栈中
+ 
 			for (int i = 0; i < points.size(); i++)
 			{
 				//左右端点的差值符号相反,代表出现贯穿
@@ -247,11 +249,11 @@ void Scanline::ComputeBuffer(int y, vector<Color> &buffer)
 				right = cross[i];
 				//这里可以改一下，既然points中已知活化APT的序号，就可以不用再pixelByID依次寻找了
 				col = pixelByID(count, left, y);
-				while (left < right)
+ 
+				for(float pixel=left;left<right;left++)
 				{
 					//image.at<uchar>(height - y - 1, floor(left)) = col;
 					buffer[left] = col;
-					left++;
 				}
 			}
 		}
@@ -262,13 +264,14 @@ void Scanline::ComputeBuffer(int y, vector<Color> &buffer)
 		//换到下一个区间，区间右为下一条活化边表的边
 	}
 	//循环结束，left为最后一条边与扫描线的交点
-	while (left < width)
+ 
+	for (float pixel = left; left < width; left++)
 	{
 		//image.at<uchar>(height - y - 1, left) = col;
 		buffer[left] = 0;
-		left++;
 	}
 }
+
 void Scanline::scan(Obj &obj, vector<vector<Color>> &buffer)
 {
 	AET.clear();

@@ -33,6 +33,7 @@ public:
 	vector<Poly> APT;
 	int height;
 	int width;
+
 	void setSize(int _width, int _height)
 	{
 		width = _width;
