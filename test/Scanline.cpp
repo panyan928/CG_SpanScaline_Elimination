@@ -13,6 +13,8 @@ Color getColor(Coord<float> &normal)
 
 void Scanline::BuildTable(Obj &obj)
 {
+	ETable.clear();
+	PTable.clear();
 	ETable.resize(height);
 	PTable.resize(height);
 	for (int i = 1; i <= obj.n_face; i++)
@@ -85,7 +87,6 @@ void Scanline::UpdateActiveEdge()
 		{
 			(*it).x += (*it).dx;
 			//(*it).z += (*it).dz;
-			//这里赋值是错的，所以活化边表没有删去已经扫描完的边
 			*(AET.begin()+n2) = *(it);
 			n2++;
 		}
@@ -117,17 +118,7 @@ bool comp(const Edge &a, const Edge &b)
 
 void Scanline::SortActiveEdge()
 {
-	sort(AET.begin(), AET.end(), comp);
-
-//没考虑活化边表为空的情况，此时it为空，不能赋值
-//活化边不需要flag
-/*vector<Edge>::iterator it = AET.begin();
-(*it).flag = 0;
-for (it++; it != AET.end(); it++)
-{
-	(*it).flag = !((it - 1)->flag);
-	//AET[n].flag = !AET[n - 1].flag;
-}*/
+	std::sort(AET.begin(), AET.end(), comp);
 }
 //根据边的id找到它所属的多边形，将多边形的标志修改
 int Scanline::UpdateFlagByID(int id)
@@ -145,7 +136,7 @@ int Scanline::UpdateFlagByID(int id)
 Color  Scanline::pixelByID(int count, float x, float y)
 {
 	Color col = 0;
-	y = y + 0.5;//扫描线y的中心线为y+0.5
+	y = y - 0.5;//扫描线y的中心线为y+0.5
 	float maxz = -999, z;
 	for (vector<Poly>::iterator it = APT.begin(); count > 0 && it != APT.end(); it++)
 	{
@@ -153,6 +144,7 @@ Color  Scanline::pixelByID(int count, float x, float y)
 		if ((*it).flag)
 		{
 			//计算比较区间左的z值
+			//z = AET[n_edge].z;
 			z = -((*it).a*x + (*it).b*y + (*it).d) / (*it).c;
 			if (z > maxz)
 			{
@@ -165,27 +157,38 @@ Color  Scanline::pixelByID(int count, float x, float y)
 	return col;
 }
 
+struct endpoint
+{
+	float zl;
+	float zr;
+	int order;
+};
 
-
-void Scanline::ComputeBuffer(int y, vector<Color> &buffer, Mat &image)
+void Scanline::ComputeBuffer(int y, vector<Color> &buffer)
 {
 	float left = 0, right;
 	//多边形计数
 	int count = 0;
+	buffer.resize(width);
 	for (int n = 0; n < (int)AET.size(); n++)
 	{
 		right = AET[n].x;
+		if (left >= right)
+		{
+			count = UpdateFlagByID(AET[n].polyID) ? count + 1 : count - 1;
+			continue;
+		}
 		Color col = 0;//初始像素值设为背景0
 		//count为0，[left,right]区段内无多边形
 		if (count == 0)
 		{
 			//区间内像素值都设为背景值
-			/*while (left < right)
+			while (left < right)
 			{
-				image.at<uchar>(height - y - 1, left) = col;
-				buffer.push_back(col);
+				//image.at<uchar>(height - y - 1, left) = col;
+				buffer[left]=0;
 				left++;
-			}*/
+			}
 		}
 		//该区间内只有一个多边形
 		else if (count == 1)
@@ -194,8 +197,8 @@ void Scanline::ComputeBuffer(int y, vector<Color> &buffer, Mat &image)
 			//区间内像素值都设为当前多边形的color
 			while (left < right)
 			{
-				image.at<uchar>(height - y - 1, left) = col;
-				//buffer.push_back(col);
+				//image.at<uchar>(height - y - 1, floor(left)) = col;
+				buffer[left] = col;
 				left++;
 			}
 		}
@@ -203,85 +206,98 @@ void Scanline::ComputeBuffer(int y, vector<Color> &buffer, Mat &image)
 		{
 			//计算交点
 			//vector<Coord<float>> cross;
-			//先两两计算
-			vector<float> zl;
-			vector<float> zr;
-			for (vector<Poly>::iterator it = APT.begin(); it != APT.end(); it++)
+			//先两两计算,成对存储边界的z值
+			vector<endpoint> points;
+			Poly p1, p2;//代表贯穿的两个多边形
+			vector<float> cross;//交点的x值
+			//计算区间左右的深度值，把他们所属的多边形在APT表中的位置存下来
+			for (int i = 0; i < APT.size();i++)
 			{
-				if (zl.size() == count) break;
-				if ((*it).flag)
+				if (points.size() == count) break;
+				if (APT[i].flag)
 				{
-					zl.push_back(-((*it).a*left + (*it).b*(y+0.5) + (*it).d) / (*it).c);
-					zr.push_back(-((*it).a*right + (*it).b*(y+0.5) + (*it).d) / (*it).c);
+					//这里不能拿left去算，left永远只是整数，不是真正的扫描线与边的交点，会有偏差
+					/*points.push_back(  { float(-(APT[i].a*left + APT[i].b*(y + 0.5) + APT[i].d) / APT[i].c), 
+									   float( -(APT[i].a*right + APT[i].b*(y + 0.5) + APT[i].d) / APT[i].c),
+									    i}  );*/
+					points.push_back( { float(-(APT[i].a*left + APT[i].b*(y + 0.5) + APT[i].d) / APT[i].c),
+									    float(-(APT[i].a*right + APT[i].b*(y + 0.5) + APT[i].d) / APT[i].c),
+									    i });
 				}
 			}
-			//for (int i = 0; i < count; i++)
-			//{
-			//	//左右端点的差值符号相反,代表出现贯穿
-			//	if ((zl[i] - zl[(i + 1) % count])*(zr[i] - zr[(i + 1) % count]) < 0)
-			//	{
-			//		//计算交点
-			//		float cross = 
-			//	}
-			//}
-			
-			col = pixelByID(count,left,y);
-			while (left < right)
+			//两两计算是否交叉，交叉的话则计算出他们的交点，并把交点入交点栈中
+			for (int i = 0; i < points.size(); i++)
 			{
-				image.at<uchar>(height - y - 1, left) = col;
-				//buffer.push_back(col);
-				left++;
+				//左右端点的差值符号相反,代表出现贯穿
+				for (int j = i+1;j < points.size(); j++)
+				{
+					if ((points[i].zl - points[j].zl) * (points[i].zr - points[j].zr) < 0)
+					{
+						p1 = APT[points[i].order];//代表相交的这两条线的APT索引
+						p2 = APT[points[j].order];//
+						cross.push_back((p2.c*p1.d + p2.c*p1.b*y - p1.c*p2.d - p1.c*p2.b*y) / (p1.c*p2.a - p2.c*p1.a));
+					}
+				}
+			}
+			//把现在这个大区间的区间右入栈
+			cross.push_back(right);
+			std::sort(cross.begin(), cross.end());
+			for (int i = 0; i < cross.size();i++)
+			{
+				right = cross[i];
+				//这里可以改一下，既然points中已知活化APT的序号，就可以不用再pixelByID依次寻找了
+				col = pixelByID(count, left, y);
+				while (left < right)
+				{
+					//image.at<uchar>(height - y - 1, floor(left)) = col;
+					buffer[left] = col;
+					left++;
+				}
 			}
 		}
 		//区间右的边所属的多边形标志取补
 		//取补以后返回1表示进入该多边形，count+1，返回0则离开该多边形，count-1
 		count = UpdateFlagByID(AET[n].polyID) ? count + 1 : count - 1;
-		left = ceil(right);
+		left = right;
 		//换到下一个区间，区间右为下一条活化边表的边
 	}
 	//循环结束，left为最后一条边与扫描线的交点
-	/*while (left < width)
+	while (left < width)
 	{
-		image.at<uchar>(height - y - 1, left) = col;
-		buffer.push_back(0);
+		//image.at<uchar>(height - y - 1, left) = col;
+		buffer[left] = 0;
 		left++;
-	}*/
+	}
 }
-void Scanline::scan(Obj &obj, vector<vector<Color>> &buffer,Mat &image)
+void Scanline::scan(Obj &obj, vector<vector<Color>> &buffer)
 {
 	AET.clear();
 	APT.clear();
+	buffer.clear();
 	//建立活化表，从上向下扫描
 	//边的指向是指向y减小的方向，所以x+dx是y-1处的值
 	buffer.resize(height);
 	for (int y = height-1; y >= 0; y--)
 	{
-		//添加新的活化多边形
-		cout << y;
-		for (int n1 = 0; n1 < (int)PTable[y].size(); n1++)
-		{
-			APT.push_back(PTable[y][n1]);
-		}
+		//cout << y << endl;
 		//添加新的活化边
 		for (int n = 0; n < (int)ETable[y].size(); n++)
 		{
-
 			AET.push_back(ETable[y][n]);
+		}
+		//添加新的活化多边形
+		for (int n = 0; n < (int)PTable[y].size(); n++)
+		{
+			APT.push_back(PTable[y][n]);
 		}
 		//对活化边表进行排序
 		if(!AET.empty()) SortActiveEdge();
 		//区间内计算
-		cout << "poly:" << APT.size() << " edge:" << AET.size() ;
-		if (APT.size() * 2 == AET.size())
-			cout << " yes" << endl;
-		ComputeBuffer(y,buffer[y],image);
+		ComputeBuffer(y,buffer[y]);
 
 		//更新活化表，产生下一条扫描线的表
 		UpdateActivePoly();
 		UpdateActiveEdge();
 		
-		// 求活化边表与扫描线的交点
-		// 按交点顺序排序，两两配对
-		//每对内部进行循环 判断填充值
 	}
 }

@@ -1,5 +1,5 @@
 #pragma once
-#include <glut.h>
+//#include <glut.h>
 #include "Obj.h"
 #include "Scanline.h"
 

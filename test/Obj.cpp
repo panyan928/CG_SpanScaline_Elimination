@@ -1,9 +1,14 @@
 #include"Obj.h"
-
-
-Obj::Obj(const char* file_path) {
+int Obj::load(string file_path)
+{
 	//未找到模型时的输出
+	//cout << file_path << endl;
 	ifstream file(file_path);
+	if (!file.is_open())
+	{
+		cout << "can't open model" << endl;
+		return 0; 
+	}
 	char* str = "";
 	char* sub;
 	//Coord<float> min(INF,INF,INF), max(0, 0, 0);
@@ -17,7 +22,7 @@ Obj::Obj(const char* file_path) {
 	while (file.getline(str, 200))
 	{
 		//读取顶点信息
-		if (str[0]=='v'&&str[1]==' ')
+		if (str[0] == 'v'&&str[1] == ' ')
 		{
 			sscanf(str + 2 * sizeof(char), "%f %f %f", &temp_c.x, &temp_c.y, &temp_c.z);
 			vertex.push_back(temp_c);
@@ -36,13 +41,13 @@ Obj::Obj(const char* file_path) {
 			sub = strtok(str, " ");
 			//str="f"
 			sub = strtok(NULL, " ");
-			
+
 			while (sub)
 			{
 				string s(sub);
 				//str是第一个数
 				int pos = s.find_first_of("/");
-				if(pos>0) temp_f.push_back(atoi(s.substr(0, pos).data()));
+				if (pos>0) temp_f.push_back(atoi(s.substr(0, pos).data()));
 				else temp_f.push_back(atoi(sub));
 				sub = strtok(NULL, " ");
 			}
@@ -51,7 +56,9 @@ Obj::Obj(const char* file_path) {
 		}
 	}
 	CalcProp();
+	return 1;
 }
+
 //计算法线、中心坐标
 void Obj::CalcProp()
 {
@@ -65,27 +72,47 @@ void Obj::CalcProp()
 
 void Obj::scale(int width, int height)
 {
-	//width,height 初始化不对，需要改！
 	float scale = 1;
+	//留出边界区域
+
 	scale = maxx - minx;//先计算x方向的尺度变换
-	if ((maxy - miny) > scale)//如果y方向范围更大的话改变scale,将scale增大
+	//模型选择跨度大的方向
+	scale = (maxy - miny) > scale ? maxy - miny : scale;
+	//窗口的大小为分子，选跨度小的方向
+	if (width<height)
 	{
-		scale = maxy - miny;
-		scale = (height - 400) / scale;
+		if (width>300)
+			scale = (width - 200) / scale;
+		else scale = width / scale;
 	}
-	else scale = (width - 400) / scale;
+		
+	else
+	{
+		if (height>300)
+			scale = (height - 200) / scale;
+		else scale = height / scale;
+	}
+	
 	for (int i = 1; i <= n_vertex; i++)
 	{
-		vertex[i] = vertex[i] * scale;
-		vertex[i].x += width / 2;
-		vertex[i].y += height / 2;
-		if (vertex[i].x <= 0 || vertex[i].x >= width) cout << "x方向出界" << endl;
-		if (vertex[i].y <= 0 || vertex[i].y >= height) cout << "y方向出界" << endl;
+		//重绘时先移动回中心再缩放
+		vertex[i] = (vertex[i] - center) * scale;
+		//重绘时的偏移量与center相关，首次绘制时center为0
+		vertex[i].x = vertex[i].x  + width / 2;
+		vertex[i].y = vertex[i].y  + height / 2;
+		//if (vertex[i].x <= 0 || vertex[i].x >= width) cout << "x方向出界" << endl;
+		//if (vertex[i].y <= 0 ) cout << "y<0" << endl;
 	}
-	minx = minx*scale+width / 2;
-	maxx = maxx*scale+width / 2;
-	miny = miny*scale+height / 2;
-	maxy = maxy*scale+height / 2;
+	minx = (minx - center.x)*scale + width / 2;
+	maxx = (maxx - center.x)*scale + width / 2;
+	miny = (miny - center.y)*scale + height / 2;
+	maxy = (maxy - center.y)*scale + height / 2;
 	//模型的中心为窗口的中间
 	center = Coord<float>(width / 2, height / 2, 0);
+}
+
+void Obj::info()
+{
+	cout << "The number of vertexs: " << n_vertex << endl;
+	cout << "The number of faces: " << n_face << endl;
 }
